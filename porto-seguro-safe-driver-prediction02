@@ -1,0 +1,58 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Sun Dec  3 23:18:33 2017
+
+@author: Cynthia Long
+"""
+
+#%%
+
+from tpot import TPOTRegressor
+from sklearn.metrics.scorer import make_scorer
+def gini(actual, pred, cmpcol = 0, sortcol = 1):
+    assert( len(actual) == len(pred))
+    #assert断言是声明其布尔值必须为真的判定，如果发生异常就说明表达示为假。
+    #可以理解assert断言语句为raise-if-not，用来测试表示式，其返回值为假，就会触发异常。
+    all = np.asarray(np.c_[ actual, pred, np.arange(len(actual)) ], dtype=np.float)
+    #np.r_按row来组合array，np.c_按colunm来组合array，注此处不一定要是一维数组合并，二维矩阵也可以
+    all = all[ np.lexsort((all[:,2], -1*all[:,1])) ]
+    #lexsort支持对数组按指定行或列的顺序排序，索引重要程度是反过来的，倒数第一个的是第一索引
+    #-1*matrix是从大到小逆序排列
+    totalLosses = all[:,0].sum()
+    giniSum = all[:,0].cumsum().sum() / totalLosses
+    #cumsum是
+    giniSum -= (len(actual) + 1) / 2.
+    return giniSum / len(actual)
+def gini_normalized(a, p):
+    return gini(a, p) / gini(a, a)
+my_custom_scorer = make_scorer(gini_normalized, greater_is_better=True)
+tpot = TPOTRegressor(generations=5,  
+                     warm_start=True,
+                     verbosity=2,
+                     scoring=my_custom_scorer)
+tpot.fit(X_train, y_train)
+tpot.score(X_test, y_test)
+tpot.export('tpot_safedriver_pipeline.py')
+#end_time=time.time()
+#print((end_time-start_time)/60)
+
+#%%
+#自定义函数示例
+from tpot import TPOTClassifier 
+from sklearn.datasets import load_digits 
+from sklearn.model_selection import train_test_split 
+from sklearn.metrics.scorer import make_scorer
+
+digits = load_digits() 
+X_train, X_test, y_train, y_test = train_test_split(digits.data, digits.target, train_size=0.75, test_size=0.25) # Make a custom metric function def my_custom_accuracy(y_true, y_pred): return float(sum(y_pred == y_true)) / len(y_true)
+
+# Make a custom a scorer from the custom metric function 
+# Note: greater_is_better=False in make_scorer below would mean that the scoring function should be minimized. 
+my_custom_scorer = make_scorer(my_custom_accuracy, greater_is_better=True)
+tpot = TPOTClassifier(generations=5, 
+                      population_size=20, 
+                      verbosity=2, 
+                      scoring=my_custom_scorer) 
+tpot.fit(X_train, y_train) 
+print(tpot.score(X_test, y_test)) 
+tpot.export('tpot_mnist_pipeline.py') 
